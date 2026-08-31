@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Webhook Drift Scanner — Find consumer-breaking JSON changes</title>
+  <meta name="description" content="Compare two webhook JSON payloads in your browser. Find consumer-breaking change candidates and generate a regression test. No upload, no sign-up.">
+  <meta name="robots" content="index,follow">
+  <link rel="canonical" href="/">
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <header class="nav"><a class="brand" href="./">Webhook Drift Scanner</a><nav><a href="#scanner">Scanner</a><a href="#pricing">Pricing</a><a href="./privacy.html">Privacy</a></nav></header>
+  <main>
+    <section class="hero">
+      <p class="eyebrow">LOCAL-FIRST WEBHOOK CONTRACT CHECK</p>
+      <h1>Will this webhook change break your consumer?</h1>
+      <p class="lede">Paste old and new JSON. Get breaking-risk candidates and a ready-to-run regression test—processed only in your browser.</p>
+      <div class="trust"><span>No sign-up</span><span>No payload upload</span><span>No storage</span></div>
+      <a class="button" href="#scanner">Scan two payloads free</a>
+    </section>
+
+    <section id="scanner" class="panel scanner" aria-labelledby="scanner-title">
+      <div class="section-head"><div><p class="eyebrow">FREE SCAN</p><h2 id="scanner-title">Compare two payloads</h2></div><button id="load-sample" class="button secondary" type="button">Load safe sample</button></div>
+      <div class="notice"><strong>Your payload stays here.</strong> Comparison and test generation run in this browser. Do not paste secrets.</div>
+      <div class="inputs">
+        <label>Old JSON<textarea id="old-json" spellcheck="false" placeholder='{"id":"evt_1","amount":1200}'></textarea></label>
+        <label>New JSON<textarea id="new-json" spellcheck="false" placeholder='{"id":"evt_1","amount":"1200"}'></textarea></label>
+      </div>
+      <div id="input-error" class="error" role="alert" hidden></div>
+      <div class="actions"><button id="scan" class="button" type="button">Find breaking-risk candidates</button><button id="clear" class="button ghost" type="button">Clear</button></div>
+    </section>
+
+    <section id="results" class="panel" hidden aria-live="polite">
+      <div class="section-head"><div><p class="eyebrow">RESULT</p><h2>Consumer-risk candidates</h2></div><span id="summary" class="badge"></span></div>
+      <p class="limitation">These are candidates inferred from two samples—not proof of the provider's complete contract. Confirm against provider documentation and your consumer code.</p>
+      <div id="changes" class="changes"></div>
+      <h3>Regression fixture and test</h3>
+      <pre id="test-output"></pre>
+      <div class="actions"><button id="copy-test" class="button secondary" type="button">Copy test</button><button id="download-test" class="button ghost" type="button">Download test</button></div>
+    </section>
+
+    <section class="split">
+      <div><p class="eyebrow">NOT JUST A JSON DIFF</p><h2>From changed syntax to consumer impact</h2></div>
+      <div class="steps"><article><b>1</b><h3>Paste</h3><p>Use two representative payloads. Nothing is uploaded.</p></article><article><b>2</b><h3>Review</h3><p>See removed paths, type shifts, shape changes, and uncertainty.</p></article><article><b>3</b><h3>Test</h3><p>Copy a fixture-based regression test into your suite.</p></article></div>
+    </section>
+
+    <section id="pricing" class="pricing">
+      <p class="eyebrow">PRICING HYPOTHESIS</p><h2>Scan once free. Monitor continuously when it matters.</h2>
+      <div class="cards">
+        <article class="price-card"><h3>Free</h3><p class="price">¥0</p><ul><li>One-off browser scan</li><li>Risk explanations</li><li>Jest/Vitest fixture test</li><li>No account or history</li></ul><a class="button secondary" href="#scanner">Run free scan</a></article>
+        <article class="price-card featured"><span class="badge">Concept preview</span><h3>Monitor</h3><p class="price">¥2,980 <small>/ month</small></p><ul><li>Local CLI / GitHub Actions</li><li>Up to 5 monitored contracts</li><li>Schema-diff history</li><li>CI checks and notifications</li><li>Multiple test frameworks</li></ul><button id="paid-cta" class="button" type="button">Start for ¥2,980</button><button id="github-cta" class="button ghost" type="button">Enable GitHub integration</button></article>
+      </div>
+    </section>
+
+    <section class="faq"><p class="eyebrow">FAQ</p><h2>What this scanner does—and does not do</h2><details><summary>Is my payload uploaded?</summary><p>No. The scanner does not send your JSON, field names, values, or generated test to a server. Anonymous product events contain only action names.</p></details><details><summary>Does a High result prove a breaking change?</summary><p>No. It is a candidate based on two samples. Whether it breaks depends on your consumer code and the provider's documented contract.</p></details><details><summary>Why not use a generic JSON diff?</summary><p>A generic diff shows syntax. This tool classifies likely consumer impact and creates a regression test you can adapt.</p></details></section>
+  </main>
+  <footer><p>Experimental tool. No claimed customers, reviews, or guarantees.</p><p><a href="./privacy.html">Privacy</a> · <a href="./terms.html">Terms</a> · <a href="./guides/webhook-breaking-change-checklist.html">Guide</a></p></footer>
+
+  <dialog id="intent-dialog"><h2>Thanks—that's useful signal.</h2><p>This paid version is still being validated. No payment has been taken and no GitHub access has been requested.</p><button id="close-dialog" class="button" type="button">Close</button></dialog>
+  <script type="module" src="./app.js"></script>
+</body>
+</html>
