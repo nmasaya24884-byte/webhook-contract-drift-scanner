@@ -1,6 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 import { comparePayloads, buildTest } from '../app.js';
+
+const appSource = await readFile(new URL('../app.js', import.meta.url), 'utf8');
+const indexSource = await readFile(new URL('../index.html', import.meta.url), 'utf8');
 
 const cases = [
   ['removed root', {id:1,name:'a'}, {id:1}, 'field_removed', '$.name'],
@@ -36,4 +40,25 @@ test('generated test contains fixtures but no network code', () => {
   const output = buildTest({a:1},{a:'1'},comparePayloads({a:1},{a:'1'}));
   assert.match(output, /highRiskPaths/);
   assert.doesNotMatch(output, /fetch\(|XMLHttpRequest|sendBeacon/);
+});
+
+test('production measurement ID is configured once for loader and config', () => {
+  assert.equal((indexSource.match(/G-C6F5VQ98EG/g) || []).length, 2);
+});
+
+test('advertising and Google Signals are disabled', () => {
+  assert.match(indexSource, /allow_google_signals:\s*false/);
+  assert.match(indexSource, /allow_ad_personalization_signals:\s*false/);
+  assert.match(indexSource, /ads_data_redaction:\s*true/);
+});
+
+test('custom analytics sends only an allow-listed event name', () => {
+  assert.match(appSource, /window\.gtag\('event', name\)/);
+  assert.doesNotMatch(appSource, /gtag\([^\n]*(oldPayload|newPayload|latestTest|test-output|old-json|new-json)/);
+});
+
+test('required KPI events are allow-listed', () => {
+  for (const event of ['scan_started','scan_completed','fixture_generated','paid_cta_clicked','github_cta_clicked']) {
+    assert.match(appSource, new RegExp(`['"]${event}['"]`));
+  }
 });
