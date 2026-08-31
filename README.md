@@ -2,6 +2,8 @@
 
 Compare two webhook JSON payloads locally, identify consumer-breaking change candidates, and generate a regression fixture/test.
 
+**Live free scanner:** https://nmasaya24884-byte.github.io/webhook-contract-drift-scanner/
+
 ## Privacy architecture
 
 - No backend is required for scanning.

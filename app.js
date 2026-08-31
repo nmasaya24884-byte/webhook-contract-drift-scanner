@@ -35,7 +35,7 @@ export function buildTest(oldPayload, newPayload, changes) {
 
 function track(name) {
   // Strict allow-list: event name only. Never pass payloads, paths, values, or test output.
-  const allowed = new Set(['sample_loaded','scan_start','scan_complete','scan_error','test_copy','test_download','paid_start_click','github_connect_click']);
+  const allowed = new Set(['sample_loaded','scanner_viewed','scan_started','scan_completed','scan_error','fixture_generated','test_copy','test_download','paid_plan_viewed','paid_cta_clicked','github_cta_clicked']);
   if (!allowed.has(name)) return;
   window.dispatchEvent(new CustomEvent('tst001:event', { detail: { name } }));
   if (typeof window.gtag === 'function') window.gtag('event', name);
@@ -72,25 +72,46 @@ if (typeof document !== 'undefined') {
   });
   $('clear').addEventListener('click', () => { $('old-json').value = ''; $('new-json').value = ''; $('results').hidden = true; $('input-error').hidden = true; });
   $('scan').addEventListener('click', () => {
-    track('scan_start');
+    track('scan_started');
     try {
       const oldPayload = parse('old-json');
       const newPayload = parse('new-json');
       const changes = comparePayloads(oldPayload, newPayload);
       render(changes.length ? changes : [{ severity: 'info', path: '$', kind: 'no_structural_change', message: 'No structural or value changes were found in these two samples.' }]);
       latestTest = buildTest(oldPayload, newPayload, changes);
+      track('fixture_generated');
       $('test-output').textContent = latestTest;
       const high = changes.filter((c) => c.severity === 'high').length;
       $('summary').textContent = `${high} high · ${changes.length} total`;
       $('results').hidden = false; $('input-error').hidden = true;
       $('results').scrollIntoView({ behavior: 'smooth', block: 'start' });
-      track('scan_complete');
+      track('scan_completed');
     } catch (error) {
       $('input-error').textContent = `Could not scan: ${error.message}`; $('input-error').hidden = false; track('scan_error');
     }
   });
   $('copy-test').addEventListener('click', async () => { await navigator.clipboard.writeText(latestTest); $('copy-test').textContent = 'Copied'; track('test_copy'); });
   $('download-test').addEventListener('click', () => { const url = URL.createObjectURL(new Blob([latestTest], { type: 'text/javascript' })); const a = document.createElement('a'); a.href = url; a.download = 'webhook-contract.test.js'; a.click(); URL.revokeObjectURL(url); track('test_download'); });
-  for (const [id, event] of [['paid-cta','paid_start_click'],['github-cta','github_connect_click']]) $(id).addEventListener('click', () => { track(event); $('intent-dialog').showModal(); });
+  for (const [id, event] of [['paid-cta','paid_cta_clicked'],['github-cta','github_cta_clicked']]) $(id).addEventListener('click', () => { track(event); $('intent-dialog').showModal(); });
+  const paidCard = document.querySelector('.price-card.featured');
+  const scannerPanel = document.querySelector('#scanner');
+  if ('IntersectionObserver' in window && scannerPanel) {
+    const scannerObserver = new IntersectionObserver((entries) => {
+      if (entries.some((entry) => entry.isIntersecting)) {
+        track('scanner_viewed');
+        scannerObserver.disconnect();
+      }
+    }, { threshold: 0.5 });
+    scannerObserver.observe(scannerPanel);
+  }
+  if ('IntersectionObserver' in window && paidCard) {
+    const paidObserver = new IntersectionObserver((entries) => {
+      if (entries.some((entry) => entry.isIntersecting)) {
+        track('paid_plan_viewed');
+        paidObserver.disconnect();
+      }
+    }, { threshold: 0.5 });
+    paidObserver.observe(paidCard);
+  }
   $('close-dialog').addEventListener('click', () => $('intent-dialog').close());
 }
