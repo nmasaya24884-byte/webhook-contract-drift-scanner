@@ -1,5 +1,32 @@
 (function () {
   const measurementId = 'G-C6F5VQ98EG';
+  const qaTransportAudit = new URLSearchParams(location.search).get('tst001_transport_audit') === '1';
+  if (qaTransportAudit) {
+    const records = [];
+    const publish = () => {
+      let output = document.getElementById('tst001-qa-network-audit');
+      if (!output) {
+        output = document.createElement('pre');
+        output.id = 'tst001-qa-network-audit';
+        output.hidden = true;
+        document.documentElement.append(output);
+      }
+      output.textContent = JSON.stringify(records);
+    };
+    const record = (transport, url, body = '', headers = '') => {
+      records.push({ transport, url:String(url), body:String(body ?? ''), headers:String(headers ?? '') });
+      publish();
+    };
+    const originalBeacon = navigator.sendBeacon?.bind(navigator);
+    if (originalBeacon) navigator.sendBeacon = (url, data) => { record('beacon', url, data); return originalBeacon(url, data); };
+    const originalFetch = window.fetch?.bind(window);
+    if (originalFetch) window.fetch = (input, init = {}) => { record('fetch', input?.url || input, init.body, JSON.stringify(init.headers || {})); return originalFetch(input, init); };
+    const originalOpen = XMLHttpRequest.prototype.open;
+    const originalSend = XMLHttpRequest.prototype.send;
+    XMLHttpRequest.prototype.open = function (method, url) { this.__tst001Url = url; return originalOpen.apply(this, arguments); };
+    XMLHttpRequest.prototype.send = function (body) { record('xhr', this.__tst001Url, body); return originalSend.apply(this, arguments); };
+    publish();
+  }
   const allowed = new Set([
     'sample_loaded', 'scanner_viewed', 'scan_started', 'scan_completed',
     'scan_error', 'fixture_generated', 'test_copy', 'test_download',
