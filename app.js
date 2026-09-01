@@ -2,6 +2,29 @@ const $ = (id) => document.getElementById(id);
 
 const typeOf = (value) => value === null ? 'null' : Array.isArray(value) ? 'array' : typeof value;
 const joinPath = (base, key) => base ? `${base}.${key}` : String(key);
+const MAX_PAYLOAD_CHARS = 1_000_000;
+const MAX_DEPTH = 100;
+const MAX_NODES = 100_000;
+
+export function validatePayload(value) {
+  const stack = [{ value, depth: 0 }];
+  let nodes = 0;
+  while (stack.length) {
+    const current = stack.pop();
+    nodes += 1;
+    if (nodes > MAX_NODES) throw new Error('Payload is too complex for this free scan.');
+    if (current.depth > MAX_DEPTH) throw new Error(`Payload nesting exceeds ${MAX_DEPTH} levels.`);
+    if (current.value && typeof current.value === 'object') {
+      for (const child of Object.values(current.value)) stack.push({ value: child, depth: current.depth + 1 });
+    }
+  }
+  return value;
+}
+
+export function parsePayloadText(text) {
+  if (text.length > MAX_PAYLOAD_CHARS) throw new Error('Keep each payload under 1 MB for this free scan.');
+  return validatePayload(JSON.parse(text));
+}
 
 export function comparePayloads(oldValue, newValue, path = '$') {
   const changes = [];
@@ -34,17 +57,11 @@ export function buildTest(oldPayload, newPayload, changes) {
 }
 
 function track(name) {
-  // Strict allow-list: event name only. Never pass payloads, paths, values, or test output.
-  const allowed = new Set(['sample_loaded','scanner_viewed','scan_started','scan_completed','scan_error','fixture_generated','test_copy','test_download','paid_plan_viewed','paid_cta_clicked','github_cta_clicked']);
-  if (!allowed.has(name)) return;
-  window.dispatchEvent(new CustomEvent('tst001:event', { detail: { name } }));
-  if (typeof window.gtag === 'function') window.gtag('event', name);
+  if (typeof window.tst001Track === 'function') window.tst001Track(name);
 }
 
 function parse(id) {
-  const text = $(id).value;
-  if (text.length > 1_000_000) throw new Error('Keep each payload under 1 MB for this free scan.');
-  return JSON.parse(text);
+  return parsePayloadText($(id).value);
 }
 
 function render(changes) {
@@ -65,6 +82,17 @@ function render(changes) {
 
 if (typeof document !== 'undefined') {
   let latestTest = '';
+  const config = window.TST001_CONFIG || { scannerEnabled: true, ctaEnabled: true };
+  if (!config.scannerEnabled) {
+    $('scan').disabled = true;
+    $('load-sample').disabled = true;
+    $('input-error').textContent = 'Scanner is temporarily unavailable while a safety check is completed.';
+    $('input-error').hidden = false;
+  }
+  if (!config.ctaEnabled) {
+    $('paid-cta').disabled = true;
+    $('github-cta').disabled = true;
+  }
   $('load-sample').addEventListener('click', () => {
     $('old-json').value = JSON.stringify({ id: 'evt_safe_example', customer: { id: 'cus_1', email: 'dev@example.test' }, amount: 1200, items: [{ sku: 'A1', quantity: 1 }] }, null, 2);
     $('new-json').value = JSON.stringify({ id: 'evt_safe_example', customer: { id: 'cus_1' }, amount: '1200', items: { sku: 'A1', quantity: 1 }, currency: 'JPY' }, null, 2);
@@ -72,7 +100,9 @@ if (typeof document !== 'undefined') {
   });
   $('clear').addEventListener('click', () => { $('old-json').value = ''; $('new-json').value = ''; $('results').hidden = true; $('input-error').hidden = true; });
   $('scan').addEventListener('click', () => {
+    if (!config.scannerEnabled) return;
     track('scan_started');
+    const startedAt = performance.now();
     try {
       const oldPayload = parse('old-json');
       const newPayload = parse('new-json');
@@ -84,15 +114,17 @@ if (typeof document !== 'undefined') {
       const high = changes.filter((c) => c.severity === 'high').length;
       $('summary').textContent = `${high} high · ${changes.length} total`;
       $('results').hidden = false; $('input-error').hidden = true;
+      document.documentElement.dataset.lastScanMs = (performance.now() - startedAt).toFixed(3);
       $('results').scrollIntoView({ behavior: 'smooth', block: 'start' });
       track('scan_completed');
     } catch (error) {
+      document.documentElement.dataset.lastScanMs = (performance.now() - startedAt).toFixed(3);
       $('input-error').textContent = `Could not scan: ${error.message}`; $('input-error').hidden = false; track('scan_error');
     }
   });
   $('copy-test').addEventListener('click', async () => { await navigator.clipboard.writeText(latestTest); $('copy-test').textContent = 'Copied'; track('test_copy'); });
   $('download-test').addEventListener('click', () => { const url = URL.createObjectURL(new Blob([latestTest], { type: 'text/javascript' })); const a = document.createElement('a'); a.href = url; a.download = 'webhook-contract.test.js'; a.click(); URL.revokeObjectURL(url); track('test_download'); });
-  for (const [id, event] of [['paid-cta','paid_cta_clicked'],['github-cta','github_cta_clicked']]) $(id).addEventListener('click', () => { track(event); $('intent-dialog').showModal(); });
+  for (const [id, event] of [['paid-cta','paid_cta_clicked'],['github-cta','github_cta_clicked']]) $(id).addEventListener('click', () => { if (!config.ctaEnabled) return; track(event); $('intent-dialog').showModal(); });
   const paidCard = document.querySelector('.price-card.featured');
   const scannerPanel = document.querySelector('#scanner');
   if ('IntersectionObserver' in window && scannerPanel) {
